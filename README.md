@@ -1,2 +1,1 @@
-# ProyectPymeMap
-Proyecto de especialidad profecional
+expo verisión: 6.3.12
