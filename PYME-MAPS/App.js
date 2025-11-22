@@ -4,9 +4,11 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { useFonts, CabinSketch_400Regular, CabinSketch_700Bold } from '@expo-google-fonts/cabin-sketch';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = React.useState('Login');
+  const [userData, setUserData] = React.useState(null);
   const [fontsLoaded] = useFonts({ CabinSketch_400Regular, CabinSketch_700Bold });
 
   if (!fontsLoaded) {
@@ -20,10 +22,37 @@ export default function App() {
     );
   }
 
+  // Login exitoso
+  const handleLoginSuccess = (data) => {
+    console.log('📱 Navegando a ProfileScreen con datos:', data);
+    setUserData(data);
+    setCurrentScreen('Profile');
+  };
+
+  // Cierra sesión
+  const handleLogout = () => {
+    console.log('Cerrando sesión y volviendo a Login');
+    setUserData(null);
+    setCurrentScreen('Login');
+  };
+
   return (
     <PaperProvider>
-      {currentScreen === 'Login' && <LoginScreen onNavigate={setCurrentScreen} />}
-      {currentScreen === 'Register' && <RegisterScreen onNavigate={setCurrentScreen} />}
+      {currentScreen === 'Login' && (
+        <LoginScreen 
+          onNavigate={setCurrentScreen} 
+          onLoginSuccess={handleLoginSuccess}
+        />
+      )}
+      {currentScreen === 'Register' && (
+        <RegisterScreen onNavigate={setCurrentScreen} />
+      )}
+      {currentScreen === 'Profile' && (
+        <ProfileScreen 
+          onNavigate={handleLogout} 
+          userData={userData}
+        />
+      )}
     </PaperProvider>
   );
 }
