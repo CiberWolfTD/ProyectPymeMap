@@ -4,7 +4,7 @@ import { Text, Avatar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { logoutUser } from '../services/authService';
 
-export default function ProfileScreen({ onNavigate, userData }) {
+export default function ProfileScreen({ onNavigate, userData, onNavigateToScreen }) {
   const [loading, setLoading] = React.useState(false);
 
   const handleLogout = () => {
@@ -26,7 +26,7 @@ export default function ProfileScreen({ onNavigate, userData }) {
             
             if (result.success) {
               console.log('Sesión cerrada exitosamente');
-              onNavigate();  // Vuelve al Login
+              onNavigate();
             } else {
               Alert.alert('Error', 'No se pudo cerrar sesión');
             }
@@ -63,7 +63,7 @@ export default function ProfileScreen({ onNavigate, userData }) {
         </Text>
       </View>
 
-      {/* Sección gris inferior (área de contenido futuro) */}
+      {/* Sección gris inferior */}
       <View style={styles.contentSection}>
         {/* Información del usuario */}
         <View style={styles.infoContainer}>
@@ -93,19 +93,28 @@ export default function ProfileScreen({ onNavigate, userData }) {
         </View>
       </View>
 
-      {/* Bottom Navigation Bar */}
+      {/* Bottom Navigation Bar*/}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => onNavigateToScreen?.('Home')}
+        >
           <MaterialCommunityIcons name="home" size={28} color="#999" />
           <Text style={styles.navText}>Inicio</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => onNavigateToScreen?.('MapScreen')}
+        >
           <MaterialCommunityIcons name="map" size={28} color="#999" />
           <Text style={styles.navText}>Mapa</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => onNavigateToScreen?.('MyPymeScreen')}
+        >
           <MaterialCommunityIcons name="store" size={28} color="#999" />
           <Text style={styles.navText}>Mi Pyme</Text>
         </TouchableOpacity>
