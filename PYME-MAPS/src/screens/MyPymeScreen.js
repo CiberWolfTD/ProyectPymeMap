@@ -42,7 +42,7 @@ export default function MyPymeScreen({ userData, onNavigateToScreen }) {
         </TouchableOpacity>
       </View>
 
-      {/* Contenido */}
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -89,7 +89,7 @@ export default function MyPymeScreen({ userData, onNavigateToScreen }) {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Botón flotante */}
+
       {locales.length > 0 && (
         <View style={styles.buttonContainer}>
           <Button
@@ -104,7 +104,7 @@ export default function MyPymeScreen({ userData, onNavigateToScreen }) {
         </View>
       )}
 
-      {/* Bottom Navigation */}
+
       <View style={styles.bottomNav}>
         <TouchableOpacity 
           style={styles.navItem}

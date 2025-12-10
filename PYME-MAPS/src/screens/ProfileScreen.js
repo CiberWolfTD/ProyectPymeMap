@@ -38,7 +38,7 @@ export default function ProfileScreen({ onNavigate, userData, onNavigateToScreen
 
   return (
     <View style={styles.container}>
-      {/* Header con botón de cerrar sesión */}
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Mi Perfil</Text>
         <TouchableOpacity onPress={handleLogout} disabled={loading}>
@@ -50,7 +50,7 @@ export default function ProfileScreen({ onNavigate, userData, onNavigateToScreen
         </TouchableOpacity>
       </View>
 
-      {/* Sección blanca superior con avatar y nombre */}
+
       <View style={styles.topSection}>
         <Avatar.Icon 
           size={120} 
@@ -63,9 +63,9 @@ export default function ProfileScreen({ onNavigate, userData, onNavigateToScreen
         </Text>
       </View>
 
-      {/* Sección gris inferior */}
+
       <View style={styles.contentSection}>
-        {/* Información del usuario */}
+
         <View style={styles.infoContainer}>
           <View style={styles.infoCard}>
             <MaterialCommunityIcons name="email" size={24} color="#674FA3" />
@@ -93,7 +93,7 @@ export default function ProfileScreen({ onNavigate, userData, onNavigateToScreen
         </View>
       </View>
 
-      {/* Bottom Navigation Bar*/}
+
       <View style={styles.bottomNav}>
         <TouchableOpacity 
           style={styles.navItem}

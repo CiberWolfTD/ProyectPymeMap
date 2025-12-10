@@ -34,12 +34,13 @@ export const getDireccionByLocal = async (idLocal) => {
       .from('direccion')
       .select('*')
       .eq('id_local', idLocal)
-      .single();
+      .maybeSingle();
 
+    // maybeSingle() devuelve null si no hay resultados (sin error)
     if (error) throw error;
 
     console.log('Dirección obtenida:', data);
-    return data;
+    return data; // Puede ser null si no existe
   } catch (error) {
     console.error('Error al obtener dirección:', error);
     return null;

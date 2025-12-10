@@ -1,20 +1,39 @@
 import * as React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
-import { Text, TextInput, Button } from 'react-native-paper';
+import { Text, TextInput, Button, Portal, Dialog } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MapView, { Marker, Polygon } from 'react-native-maps';
 import * as ImagePicker from 'expo-image-picker';
+
 import { createLocal } from '../services/localService';
 import { createDireccion } from '../services/direccionService';
 import { uploadImage, generateFileName } from '../services/imageService';
+import { geocodificarDireccion, coordenadasEnChile } from '../services/geocodingService';
 
 export default function RegisterLocalScreen({ userData, onNavigateToScreen }) {
+
+  // Limites de zona San Diego - Santiago Centro
+  const SAN_DIEGO_BOUNDARY = {
+    minLat: -33.4650,  // Sur (Más al sur de San Diego)
+    maxLat: -33.4300,  // Norte (Hacia Santiago Centro)
+    minLng: -70.6800,  // Oeste (Límite poniente)
+    maxLng: -70.6350,  // Este (Hacia el centro)
+  };
+
+  // Polígono visual para el mapa (las 4 esquinas del rectángulo)
+  const zonaPermitida = [
+    { latitude: SAN_DIEGO_BOUNDARY.minLat, longitude: SAN_DIEGO_BOUNDARY.minLng }, // SO
+    { latitude: SAN_DIEGO_BOUNDARY.maxLat, longitude: SAN_DIEGO_BOUNDARY.minLng }, // NO
+    { latitude: SAN_DIEGO_BOUNDARY.maxLat, longitude: SAN_DIEGO_BOUNDARY.maxLng }, // NE
+    { latitude: SAN_DIEGO_BOUNDARY.minLat, longitude: SAN_DIEGO_BOUNDARY.maxLng }, // SE
+  ];
+
   const [formData, setFormData] = React.useState({
     nombre: '',
     descripcion: '',
     rut: '',
     telefono: '',
     correo: '',
-    // Dirección
     region: 'Región Metropolitana',
     comuna: '',
     calle: '',
@@ -26,44 +45,39 @@ export default function RegisterLocalScreen({ userData, onNavigateToScreen }) {
   const [errors, setErrors] = React.useState({});
   const [loading, setLoading] = React.useState(false);
 
+  const [coordenadas, setCoordenadas] = React.useState(null);
+  const [showMapDialog, setShowMapDialog] = React.useState(false);
+  const [loadingGeocode, setLoadingGeocode] = React.useState(false);
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
+  const pickImage = async (tipo) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: tipo === "portada" ? [16, 9] : [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
 
-const pickImage = async (tipo) => {
-  try {
-    console.log("Abriendo selector...");
+      if (result.canceled) return;
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: tipo === "portada" ? [16, 9] : [1, 1],
-      quality: 0.8,
-      base64: true,
-    });
+      const asset = result.assets[0];
 
-    console.log("Resultado picker:", result);
-    if (result.canceled) return;
+      if (tipo === "portada") setImagenPortada(asset);
+      else if (tipo === "icono") setImagenIcono(asset);
 
-    const asset = result.assets[0];
-
-    if (tipo === "portada") {
-      setImagenPortada(asset);
-    } else if (tipo === "icono") {
-      setImagenIcono(asset);
-    } else {
-      console.warn("pickImage: tipo desconocido:", tipo);
+    } catch (err) {
+      Alert.alert("Error", "No se pudo seleccionar la imagen.");
     }
-  } catch (err) {
-    console.log("Error seleccionando imagen:", err);
-    Alert.alert("Error", "No se pudo seleccionar la imagen.");
-  }
-};
-
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -72,12 +86,16 @@ const pickImage = async (tipo) => {
       newErrors.nombre = "El nombre del local es requerido";
     if (!formData.descripcion.trim())
       newErrors.descripcion = "La descripción es requerida";
-    if (!formData.rut.trim()) newErrors.rut = "El RUT es requerido";
-    if (!formData.telefono.trim()) newErrors.telefono = "El teléfono es requerido";
+    if (!formData.rut.trim())
+      newErrors.rut = "El RUT es requerido";
+    if (!formData.telefono.trim())
+      newErrors.telefono = "El teléfono es requerido";
     if (!formData.correo.trim() || !formData.correo.includes("@"))
       newErrors.correo = "Correo inválido";
-    if (!formData.comuna.trim()) newErrors.comuna = "La comuna es requerida";
-    if (!formData.calle.trim()) newErrors.calle = "La calle es requerida";
+    if (!formData.comuna.trim())
+      newErrors.comuna = "La comuna es requerida";
+    if (!formData.calle.trim())
+      newErrors.calle = "La calle es requerida";
     if (!formData.numeracion.trim())
       newErrors.numeracion = "La numeración es requerida";
 
@@ -85,13 +103,110 @@ const pickImage = async (tipo) => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const estaDentroDeZona = (lat, lon) => {
+    const dentroLat = lat >= SAN_DIEGO_BOUNDARY.minLat && lat <= SAN_DIEGO_BOUNDARY.maxLat;
+    const dentroLng = lon >= SAN_DIEGO_BOUNDARY.minLng && lon <= SAN_DIEGO_BOUNDARY.maxLng;
+    
+    console.log('Verificando coordenadas:', {
+      lat,
+      lon,
+      dentroLat,
+      dentroLng,
+      resultado: dentroLat && dentroLng
+    });
+    
+    return dentroLat && dentroLng;
+  };
+
+  // Geocodificar y mostrar mapa de confirmación
+  const handleGeocodificar = async () => {
+
+    if (!formData.comuna.trim() || !formData.calle.trim() || !formData.numeracion.trim()) {
+      Alert.alert('Dirección incompleta', 'Por favor completa calle, número y comuna para verificar la ubicación.');
+      return;
+    }
+
+    setLoadingGeocode(true);
+
+    try {
+      const resultado = await geocodificarDireccion({
+        calle: formData.calle,
+        numeracion: formData.numeracion,
+        comuna: formData.comuna,
+        region: formData.region
+      });
+
+      console.log('Resultado geocodificación:', resultado);
+
+      if (!coordenadasEnChile(resultado.latitude, resultado.longitude)) {
+        Alert.alert(
+          'Ubicación inválida',
+          'Las coordenadas encontradas no están en Chile. Verifica la dirección.',
+          [{ text: 'OK' }]
+        );
+        setLoadingGeocode(false);
+        return;
+      }
+
+      const dentroDeLaZona = estaDentroDeZona(resultado.latitude, resultado.longitude);
+
+      if (!dentroDeLaZona) {
+        Alert.alert(
+          'Zona no permitida',
+          `Esta dirección está FUERA de la zona permitida (San Diego - Santiago Centro).\n\nCoordenadas encontradas:\nLat: ${resultado.latitude.toFixed(6)}\nLon: ${resultado.longitude.toFixed(6)}\n\nPor favor ingresa una dirección dentro de la zona.`,
+          [{ text: 'Cambiar dirección' }]
+        );
+        setLoadingGeocode(false);
+        return;
+      }
+
+      setCoordenadas(resultado);
+      setShowMapDialog(true);
+
+      if (resultado.accuracy === 'approximate') {
+        Alert.alert(
+          'Ubicación aproximada',
+          'No se encontró la dirección exacta. Puedes ajustar el marcador arrastrándolo en el mapa.',
+          [{ text: 'Entendido' }]
+        );
+      }
+
+    } catch (err) {
+      console.error('Error en geocodificación:', err);
+      Alert.alert('Error', 'No se pudo obtener la ubicación. Intenta nuevamente.');
+    } finally {
+      setLoadingGeocode(false);
+    }
+  };
+
   const handleRegister = async () => {
     if (!validateForm()) return;
 
+    if (!coordenadas) {
+      Alert.alert(
+        'Falta verificar ubicación',
+        'Debes verificar la ubicación en el mapa antes de registrar el local.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (!estaDentroDeZona(coordenadas.latitude, coordenadas.longitude)) {
+      Alert.alert(
+        'Zona no permitida',
+        'El marcador está fuera de la zona permitida. Por favor ajústalo dentro del área marcada.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    await registrarLocal();
+  };
+
+  const registrarLocal = async () => {
     setLoading(true);
 
     try {
-      // Subir imágenes si existen
       let urlPortada = null;
       let urlIcono = null;
 
@@ -113,7 +228,6 @@ const pickImage = async (tipo) => {
         if (resultIcono.success) urlIcono = resultIcono.url;
       }
 
-      // Crear el local
       const localResult = await createLocal({
         id_user: userData?.id_user,
         nombre: formData.nombre,
@@ -131,7 +245,6 @@ const pickImage = async (tipo) => {
         return;
       }
 
-      // Crear la dirección
       await createDireccion({
         id_local: localResult.local.id_local,
         region: formData.region,
@@ -139,28 +252,49 @@ const pickImage = async (tipo) => {
         calle: formData.calle,
         numeracion: formData.numeracion,
         codigo_postal: null,
-        latitud: null,
-        longitud: null,
+        latitud: coordenadas.latitude,
+        longitud: coordenadas.longitude,
       });
 
       setLoading(false);
 
       Alert.alert(
         '¡Éxito!',
-        'Tu local ha sido registrado correctamente.',
+        'Tu local ha sido registrado y aparecerá en el mapa.',
         [{
           text: 'OK',
           onPress: () => onNavigateToScreen('MyPymeScreen'),
         }]
       );
+
     } catch (error) {
       setLoading(false);
+      console.error('Error registrando local:', error);
       Alert.alert('Error', 'Ocurrió un error al registrar el local');
     }
   };
 
+  const handleMarkerDrag = (e) => {
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+    
+    // Verificar si está dentro de la zona
+    const dentroDeZona = estaDentroDeZona(latitude, longitude);
+    
+    if (!dentroDeZona) {
+      // Mostrar advertencia
+      console.warn('Marcador fuera de zona');
+    }
+    
+    setCoordenadas({
+      latitude,
+      longitude,
+      accuracy: 'manual'
+    });
+  };
+
   return (
     <View style={styles.container}>
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => onNavigateToScreen("MyPymeScreen")}>
           <MaterialCommunityIcons name="arrow-left" size={28} color="#674FA3" />
@@ -169,11 +303,9 @@ const pickImage = async (tipo) => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        
-        {/* SECCIÓN DE IMÁGENES*/}
-        <View style={styles.imageSection}>
 
-          {/* PORTADA */}
+
+        <View style={styles.imageSection}>
           <TouchableOpacity
             style={styles.imagePlaceholder}
             onPress={() => pickImage("portada")}
@@ -188,7 +320,6 @@ const pickImage = async (tipo) => {
             )}
           </TouchableOpacity>
 
-          {/* ICONO */}
           <TouchableOpacity
             style={styles.avatarPlaceholder}
             onPress={() => pickImage("icono")}
@@ -201,7 +332,7 @@ const pickImage = async (tipo) => {
           </TouchableOpacity>
         </View>
 
-        {/* FORMULARIO */}
+
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Información del Local</Text>
 
@@ -252,46 +383,147 @@ const pickImage = async (tipo) => {
           {errors.descripcion && <Text style={styles.errorText}>{errors.descripcion}</Text>}
 
           <Text style={styles.sectionTitle}>Dirección</Text>
+          <Text style={styles.helpText}>
+            📍 Solo se permiten locales en la zona San Diego - Santiago Centro
+          </Text>
 
           <TextInput
-            label="Comuna"
+            label="Comuna*"
             value={formData.comuna}
             onChangeText={v => handleInputChange("comuna", v)}
             style={styles.input}
             mode="outlined"
+            placeholder="ej: Santiago, San Diego"
           />
           {errors.comuna && <Text style={styles.errorText}>{errors.comuna}</Text>}
 
           <TextInput
-            label="Calle"
+            label="Calle*"
             value={formData.calle}
             onChangeText={v => handleInputChange("calle", v)}
             style={styles.input}
             mode="outlined"
+            placeholder="ej: Av. Libertador Bernardo O'Higgins"
           />
           {errors.calle && <Text style={styles.errorText}>{errors.calle}</Text>}
 
           <TextInput
-            label="Numeración"
+            label="Numeración*"
             value={formData.numeracion}
             onChangeText={v => handleInputChange("numeracion", v)}
             style={styles.input}
             mode="outlined"
+            placeholder="ej: 1234"
+            keyboardType="numeric"
           />
           {errors.numeracion && <Text style={styles.errorText}>{errors.numeracion}</Text>}
+
+
+          <Button
+            mode="outlined"
+            icon="map-marker-check"
+            onPress={handleGeocodificar}
+            style={styles.verifyButton}
+            loading={loadingGeocode}
+            disabled={loadingGeocode}
+          >
+            {coordenadas ? 'Ubicación verificada ✓' : 'Verificar ubicación en mapa'}
+          </Button>
 
           <Button
             mode="contained"
             onPress={handleRegister}
             style={styles.registerButton}
             loading={loading}
+            disabled={loading || !coordenadas}
           >
             {loading ? "Registrando..." : "Registrar local"}
           </Button>
+
         </View>
 
         <View style={{ height: 50 }} />
       </ScrollView>
+
+
+      <Portal>
+        <Dialog 
+          visible={showMapDialog} 
+          onDismiss={() => setShowMapDialog(false)}
+          style={styles.mapDialog}
+        >
+          <Dialog.Title>Confirmar ubicación</Dialog.Title>
+
+          <Dialog.Content>
+            <Text style={styles.mapHint}>
+              Arrastra el marcador para ajustar la ubicación exacta.{'\n'}
+              El área verde muestra la zona permitida.
+            </Text>
+            
+            {coordenadas && (
+              <MapView
+                style={styles.mapPreview}
+                initialRegion={{
+                  latitude: coordenadas.latitude,
+                  longitude: coordenadas.longitude,
+                  latitudeDelta: 0.03,
+                  longitudeDelta: 0.03,
+                }}
+              >
+
+                <Polygon
+                  coordinates={zonaPermitida}
+                  fillColor="rgba(103, 79, 163, 0.2)"
+                  strokeColor="#674FA3"
+                  strokeWidth={2}
+                />
+
+                <Marker
+                  draggable
+                  coordinate={{
+                    latitude: coordenadas.latitude,
+                    longitude: coordenadas.longitude,
+                  }}
+                  title="Tu local"
+                  description="Arrastra para ajustar"
+                  onDragEnd={handleMarkerDrag}
+                >
+                  <View style={styles.customMarker}>
+                    <MaterialCommunityIcons name="store" size={30} color="#674FA3" />
+                  </View>
+                </Marker>
+              </MapView>
+            )}
+
+            {coordenadas && (
+              <View style={styles.coordsInfo}>
+                <Text style={styles.coordsText}>
+                  Lat: {coordenadas.latitude.toFixed(6)}, Lon: {coordenadas.longitude.toFixed(6)}
+                </Text>
+                <Text style={[
+                  styles.zoneStatus,
+                  estaDentroDeZona(coordenadas.latitude, coordenadas.longitude) 
+                    ? styles.zoneInside 
+                    : styles.zoneOutside
+                ]}>
+                  {estaDentroDeZona(coordenadas.latitude, coordenadas.longitude)
+                    ? '✓ Dentro de zona permitida'
+                    : '⚠ Fuera de zona permitida'}
+                </Text>
+              </View>
+            )}
+          </Dialog.Content>
+
+          <Dialog.Actions>
+            <Button onPress={() => setShowMapDialog(false)}>
+              {estaDentroDeZona(coordenadas?.latitude, coordenadas?.longitude)
+                ? 'Confirmar'
+                : 'Ajustar posición'}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
     </View>
   );
 }
@@ -375,6 +607,12 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     marginTop: 10,
   },
+  helpText: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 15,
+    fontStyle: 'italic',
+  },
   input: {
     marginBottom: 8,
     backgroundColor: '#fff',
@@ -388,7 +626,62 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginLeft: 4,
   },
+  verifyButton: {
+    marginTop: 10,
+    marginBottom: 10,
+  },
   registerButton: {
-    marginTop: 20,
+    marginTop: 10,
+  },
+  mapDialog: {
+    maxHeight: '85%',
+  },
+  mapHint: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 10,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  mapPreview: {
+    width: '100%',
+    height: 300,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  customMarker: {
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: '#674FA3',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  coordsInfo: {
+    backgroundColor: '#f5f5f5',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 5,
+  },
+  coordsText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  zoneStatus: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  zoneInside: {
+    color: '#4CAF50',
+  },
+  zoneOutside: {
+    color: '#F44336',
   },
 });

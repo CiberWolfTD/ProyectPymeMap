@@ -123,7 +123,7 @@ export default function AddProductScreen({ userData, localId, onNavigateToScreen
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => onNavigateToScreen('LocalDetailScreen', { localId })}>
           <MaterialCommunityIcons name="arrow-left" size={28} color="#674FA3" />
@@ -132,7 +132,7 @@ export default function AddProductScreen({ userData, localId, onNavigateToScreen
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Imagen */}
+
         <View style={styles.imageSection}>
           <Text style={styles.imageSectionTitle}>Imagen del producto</Text>
 
@@ -153,7 +153,7 @@ export default function AddProductScreen({ userData, localId, onNavigateToScreen
           </TouchableOpacity>
         </View>
 
-        {/* Formulario */}
+
         <View style={styles.formSection}>
           <TextInput
             label="Nombre*"
@@ -218,7 +218,6 @@ export default function AddProductScreen({ userData, localId, onNavigateToScreen
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
 
-  /* Header */
   header: {
     paddingTop: 50,
     paddingBottom: 15,
@@ -236,12 +235,10 @@ const styles = StyleSheet.create({
     color: '#222'
   },
 
-  /* Content */
   content:{
     flex: 1
   },
 
-  /* Imagen */
   imageSection: {
     padding: 20,
     backgroundColor: '#f5f5f5'
@@ -290,7 +287,6 @@ const styles = StyleSheet.create({
     color: '#999'
   },
 
-  /* Form */
   formSection: {
     padding: 20
   },
@@ -307,7 +303,6 @@ const styles = StyleSheet.create({
     marginLeft: 4
   },
 
-  /* Botones */
   buttonContainer:
   { marginTop: 20, gap: 10 },
   addButton: {},

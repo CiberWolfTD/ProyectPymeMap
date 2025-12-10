@@ -3,18 +3,39 @@ import { supabase } from '../config/supabase';
 // Obtener todos los locales (para el mapa)
 export const getAllLocales = async () => {
   try {
-    console.log('Obteniendo todos los locales...');
+    console.log('Obteniendo todos los locales con coordenadas...');
     
     const { data, error } = await supabase
       .from('local')
-      .select('*');
+      .select(`
+        *,
+        direccion (
+          latitud,
+          longitud,
+          calle,
+          numeracion,
+          comuna
+        )
+      `);
 
     if (error) throw error;
 
-    console.log('Todos los locales obtenidos:', data?.length || 0);
-    return data || [];
+    const localesConDireccion = (data || []).map(local => {
+      const dir = local.direccion?.[0] || local.direccion;
+
+      return {
+        ...local,
+        latitud: dir?.latitud ?? null,
+        longitud: dir?.longitud ?? null,
+        direccion_completa: dir
+          ? `${dir.calle || ''} ${dir.numeracion || ''}, ${dir.comuna || ''}`
+          : null
+      };
+    });
+
+    return localesConDireccion;
   } catch (error) {
-    console.error('Error al obtener todos los locales:', error);
+    console.error('Error al obtener locales:', error);
     return [];
   }
 };
@@ -69,7 +90,7 @@ export const createLocal = async (localData) => {
   }
 };
 
-// Obtener local con productos
+// Obtener local con productos y dirección
 export const getLocalWithProducts = async (localId) => {
   try {
     console.log('Obteniendo local con productos:', localId);
@@ -80,7 +101,18 @@ export const getLocalWithProducts = async (localId) => {
 
     const { data: localData, error: localError } = await supabase
       .from('local')
-      .select('*')
+      .select(`
+        *,
+        direccion (
+          id_direccion,
+          latitud,
+          longitud,
+          calle,
+          numeracion,
+          comuna,
+          region
+        )
+      `)
       .eq('id_local', localId)
       .single();
 
@@ -93,10 +125,19 @@ export const getLocalWithProducts = async (localId) => {
 
     if (productError) throw productError;
 
+    // Extraer dirección (puede venir como array o objeto)
+    const dir = localData.direccion?.[0] || localData.direccion;
+
     console.log('Local con productos obtenido. Productos:', productData?.length || 0);
     return {
       ...localData,
-      productos: productData || []
+      productos: productData || [],
+      direccion_completa: dir
+        ? `${dir.calle || ''} ${dir.numeracion || ''}, ${dir.comuna || ''}`
+        : null,
+      latitud: dir?.latitud ?? null,
+      longitud: dir?.longitud ?? null,
+      id_direccion: dir?.id_direccion ?? null,
     };
   } catch (error) {
     console.error('Error al obtener local con productos:', error);
@@ -130,23 +171,49 @@ export const updateLocal = async (localId, updates) => {
   }
 };
 
-// Eliminar local
+// Eliminar local (Manualmebnte porque no me gusto como query BD)
 export const deleteLocal = async (localId) => {
   try {
-    console.log('Eliminando local:', localId);
+    console.log('Eliminando local y sus dependencias:', localId);
     
     if (!localId) {
       throw new Error('El ID del local es requerido');
     }
 
-    const { error } = await supabase
+    // Eliminar productos del local
+    const { error: productError } = await supabase
+      .from('producto')
+      .delete()
+      .eq('id_local', localId);
+
+    if (productError) {
+      console.error('Error eliminando productos:', productError);
+      throw productError;
+    }
+
+    // Eliminar dirección del local
+    const { error: direccionError } = await supabase
+      .from('direccion')
+      .delete()
+      .eq('id_local', localId);
+
+    if (direccionError) {
+      console.error('Error eliminando dirección:', direccionError);
+      throw direccionError;
+    }
+
+    // Finalmente eliminar el local
+    const { error: localError } = await supabase
       .from('local')
       .delete()
       .eq('id_local', localId);
 
-    if (error) throw error;
+    if (localError) {
+      console.error('Error eliminando local:', localError);
+      throw localError;
+    }
 
-    console.log('Local eliminado');
+    console.log('Local y dependencias eliminados correctamente');
     return { success: true };
   } catch (error) {
     console.error('Error al eliminar local:', error);

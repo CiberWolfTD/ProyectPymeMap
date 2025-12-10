@@ -9,19 +9,16 @@ import MyPymeScreen from './src/screens/MyPymeScreen';
 import RegisterLocalScreen from './src/screens/RegisterLocalScreen';
 import LocalDetailScreen from './src/screens/LocalDetailScreen';
 import AddProductScreen from './src/screens/AddProductScreen';
+import MapScreen from './src/screens/MapScreen';
 
 // Pantallas placeholder
 const HomeScreen = ({ onNavigateToScreen }) => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
     <Text style={{ fontSize: 24, marginBottom: 20 }}>Home (En desarrollo)</Text>
-    <Button mode="contained" onPress={() => onNavigateToScreen('Profile')}>Ir a Perfil</Button>
-  </View>
-);
-
-const MapScreen = ({ onNavigateToScreen }) => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-    <Text style={{ fontSize: 24, marginBottom: 20 }}>Mapa (En desarrollo)</Text>
-    <Button mode="contained" onPress={() => onNavigateToScreen('Profile')}>Ir a Perfil</Button>
+    <Button mode="contained" onPress={() => onNavigateToScreen('MapScreen')}>Ver Mapa</Button>
+    <Button mode="outlined" onPress={() => onNavigateToScreen('Profile')} style={{ marginTop: 10 }}>
+      Ir a Perfil
+    </Button>
   </View>
 );
 
@@ -51,7 +48,7 @@ export default function App() {
     );
   }
 
-  // Login exitoso → ProfileScreen
+  // Login exitoso
   const handleLoginSuccess = (data) => {
     console.log('Login exitoso:', data);
     setUserData(data);
@@ -84,7 +81,10 @@ export default function App() {
       )}
 
       {currentScreen === 'MapScreen' && userData && (
-        <MapScreen onNavigateToScreen={handleNavigateToScreen} />
+        <MapScreen 
+          userData={userData}
+          onNavigateToScreen={handleNavigateToScreen}
+        />
       )}
 
       {currentScreen === 'Profile' && userData && (
@@ -127,7 +127,6 @@ export default function App() {
     </PaperProvider>
   );
 }
-
 
 const styles = StyleSheet.create({
   loadingContainer: {
