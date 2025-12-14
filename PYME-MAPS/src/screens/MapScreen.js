@@ -50,18 +50,12 @@ export default function MapScreen({ userData, onNavigateToScreen }) {
     setLoading(true);
     try {
       const datos = await getAllLocales();
-      console.log("Coordenadas obtenidas:", datos.map(l => ({
-        nombre: l.nombre,
-        latitud: l.latitud,
-        longitud: l.longitud
-      })));
 
       // Filtrar locales con coordenadas válidas y dentro de la zona
       const localesValidos = datos.filter(local => {
         const coords = validarCoordenadas(local.latitud, local.longitud);
         
         if (!coords) {
-          console.warn(`Local "${local.nombre}" sin coordenadas válidas`);
           return false;
         }
         
@@ -72,31 +66,28 @@ export default function MapScreen({ userData, onNavigateToScreen }) {
           coords.longitude <= SAN_DIEGO_BOUNDARY.maxLng
         );
         
-        if (!dentroZona) {
-          console.warn(`Local "${local.nombre}" fuera de zona`);
-        }
-        
         return dentroZona;
       });
 
       setLocales(localesValidos);
-      console.log("Locales válidos dentro de zona:", localesValidos.length);
 
-      if (localesValidos.length > 0) {
+      if (localesValidos.length > 0 && mapRef.current) {
         const first = localesValidos[0];
         const coords = validarCoordenadas(first.latitud, first.longitud);
         
-        if (coords && mapRef.current) {
-          mapRef.current.animateToRegion({
-            ...coords,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }, 600);
+        if (coords) {
+          setTimeout(() => {
+            mapRef.current?.animateToRegion({
+              ...coords,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            }, 600);
+          }, 100);
         }
-      } else {
+      } else if (localesValidos.length === 0) {
         Alert.alert(
           "Sin locales visibles",
-          "No hay locales con coordenadas válidas en la zona permitida."
+          "No hay locales en la zona permitida."
         );
       }
 
@@ -108,36 +99,45 @@ export default function MapScreen({ userData, onNavigateToScreen }) {
     }
   };
 
-  const handleMarkerPress = (local) => {
-    const coords = validarCoordenadas(local.latitud, local.longitud);
-    
-    if (!coords) {
-      console.error(`Coordenadas inválidas para local: ${local.nombre}`);
-      Alert.alert("Error", "Este local no tiene coordenadas válidas");
-      return;
-    }
-    
-    setSelectedLocal(local);
-    
-    if (mapRef.current) {
-      mapRef.current.animateToRegion({
-        ...coords,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }, 500);
-    }
-  };
+  const handleMarkerPress = React.useCallback((local) => {
+    try {
+      if (!local || !local.id_local) {
+        return;
+      }
 
-  const handleCardPress = () => {
-    if (selectedLocal && selectedLocal.id_local) {
+      const coords = validarCoordenadas(local.latitud, local.longitud);
+      
+      if (!coords) {
+        Alert.alert("Error", "Coordenadas inválidas");
+        return;
+      }
+      
+      setSelectedLocal(local);
+      
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.animateToRegion({
+            ...coords,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }, 500);
+        }
+      }, 50);
+    } catch (error) {
+      console.error('Error en handleMarkerPress:', error);
+    }
+  }, []);
+
+  const handleCardPress = React.useCallback(() => {
+    if (selectedLocal?.id_local) {
       onNavigateToScreen('LocalDetailScreen', {
         localId: selectedLocal.id_local,
         origin: 'MapScreen'
       });
     }
-  };
+  }, [selectedLocal, onNavigateToScreen]);
 
-  const handleCenterMap = () => {
+  const handleCenterMap = React.useCallback(() => {
     if (locales.length > 0) {
       const first = locales[0];
       const coords = validarCoordenadas(first.latitud, first.longitud);
@@ -152,7 +152,7 @@ export default function MapScreen({ userData, onNavigateToScreen }) {
     } else if (mapRef.current) {
       mapRef.current.animateToRegion(region, 500);
     }
-  };
+  }, [locales, region]);
 
   return (
     <View style={styles.container}>
@@ -177,30 +177,28 @@ export default function MapScreen({ userData, onNavigateToScreen }) {
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={region}
-        showsUserLocation={true}
+        showsUserLocation={false}
         showsCompass={true}
         loadingEnabled={true}
+        onMapReady={() => console.log('Mapa listo')}
       >
         {locales.map((local) => {
           const coords = validarCoordenadas(local.latitud, local.longitud);
           
           if (!coords) return null;
           
+          const isSelected = selectedLocal?.id_local === local.id_local;
+          
           return (
             <Marker
-              key={local.id_local}
+              key={`marker-${local.id_local}`}
               coordinate={coords}
               onPress={() => handleMarkerPress(local)}
-            >
-              <View style={styles.markerContainer}>
-                <View style={[
-                  styles.marker,
-                  selectedLocal?.id_local === local.id_local && styles.markerSelected
-                ]}>
-                  <MaterialCommunityIcons name="store" size={20} color="#fff" />
-                </View>
-              </View>
-            </Marker>
+              title={local.nombre}
+              description={local.direccion_completa}
+              pinColor={isSelected ? '#FF6B6B' : '#674FA3'}
+              tracksViewChanges={false}
+            />
           );
         })}
       </MapView>
@@ -232,7 +230,11 @@ export default function MapScreen({ userData, onNavigateToScreen }) {
             <View style={styles.cardBody}>
               <View style={styles.cardImageContainer}>
                 {selectedLocal.imagen_portada ? (
-                  <Image source={{ uri: selectedLocal.imagen_portada }} style={styles.cardImage} />
+                  <Image 
+                    source={{ uri: selectedLocal.imagen_portada }} 
+                    style={styles.cardImage}
+                    resizeMode="cover"
+                  />
                 ) : (
                   <View style={styles.cardImagePlaceholder}>
                     <MaterialCommunityIcons name="store" size={30} color="#999" />
@@ -336,28 +338,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  markerContainer: {
-    alignItems: 'center',
-  },
-  marker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#674FA3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  markerSelected: {
-    backgroundColor: '#FF6B6B',
-    transform: [{ scale: 1.2 }],
   },
   counter: {
     position: 'absolute',

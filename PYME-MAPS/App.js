@@ -2,6 +2,7 @@ import * as React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { Provider as PaperProvider, Button } from 'react-native-paper';
 import { useFonts, CabinSketch_400Regular, CabinSketch_700Bold } from '@expo-google-fonts/cabin-sketch';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -58,71 +59,75 @@ export default function App() {
   };
 
   return (
-    <PaperProvider>
-      {currentScreen === 'Login' && (
-        <LoginScreen 
-          onNavigate={setCurrentScreen} 
-          onLoginSuccess={handleLoginSuccess}
-        />
-      )}
+    <SafeAreaProvider>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+        <PaperProvider>
+          {currentScreen === 'Login' && (
+            <LoginScreen 
+              onNavigate={setCurrentScreen} 
+              onLoginSuccess={handleLoginSuccess}
+            />
+          )}
 
-      {currentScreen === 'Register' && (
-        <RegisterScreen onNavigate={setCurrentScreen} />
-      )}
+          {currentScreen === 'Register' && (
+            <RegisterScreen onNavigate={setCurrentScreen} />
+          )}
 
-      {currentScreen === 'Home' && userData && (
-        <HomeScreen 
-          userData={userData}
-          onNavigateToScreen={handleNavigateToScreen}
-        />
-      )}
+          {currentScreen === 'Home' && userData && (
+            <HomeScreen 
+              userData={userData}
+              onNavigateToScreen={handleNavigateToScreen}
+            />
+          )}
 
-      {currentScreen === 'MapScreen' && userData && (
-        <MapScreen 
-          userData={userData}
-          onNavigateToScreen={handleNavigateToScreen}
-        />
-      )}
+          {currentScreen === 'MapScreen' && userData && (
+            <MapScreen 
+              userData={userData}
+              onNavigateToScreen={handleNavigateToScreen}
+            />
+          )}
 
-      {currentScreen === 'Profile' && userData && (
-        <ProfileScreen 
-          onNavigate={handleLogout} 
-          userData={userData}
-          onNavigateToScreen={handleNavigateToScreen}
-        />
-      )}
+          {currentScreen === 'Profile' && userData && (
+            <ProfileScreen 
+              onNavigate={handleLogout} 
+              userData={userData}
+              onNavigateToScreen={handleNavigateToScreen}
+            />
+          )}
 
-      {currentScreen === 'MyPymeScreen' && userData && (
-        <MyPymeScreen 
-          userData={userData}
-          onNavigateToScreen={handleNavigateToScreen}
-        />
-      )}
+          {currentScreen === 'MyPymeScreen' && userData && (
+            <MyPymeScreen 
+              userData={userData}
+              onNavigateToScreen={handleNavigateToScreen}
+            />
+          )}
 
-      {currentScreen === 'RegisterLocalScreen' && userData && (
-        <RegisterLocalScreen 
-          userData={userData}
-          onNavigateToScreen={handleNavigateToScreen}
-        />
-      )}
+          {currentScreen === 'RegisterLocalScreen' && userData && (
+            <RegisterLocalScreen 
+              userData={userData}
+              onNavigateToScreen={handleNavigateToScreen}
+            />
+          )}
 
-      {currentScreen === 'LocalDetailScreen' && userData && (
-        <LocalDetailScreen 
-          userData={userData}
-          localId={selectedLocalId}
-          previousScreen={previousScreen}
-          onNavigateToScreen={handleNavigateToScreen}
-        />
-      )}
+          {currentScreen === 'LocalDetailScreen' && userData && (
+            <LocalDetailScreen 
+              userData={userData}
+              localId={selectedLocalId}
+              previousScreen={previousScreen}
+              onNavigateToScreen={handleNavigateToScreen}
+            />
+          )}
 
-      {currentScreen === 'AddProductScreen' && userData && (
-        <AddProductScreen 
-          userData={userData}
-          localId={selectedLocalId}
-          onNavigateToScreen={handleNavigateToScreen}
-        />
-      )}
-    </PaperProvider>
+          {currentScreen === 'AddProductScreen' && userData && (
+            <AddProductScreen 
+              userData={userData}
+              localId={selectedLocalId}
+              onNavigateToScreen={handleNavigateToScreen}
+            />
+          )}
+        </PaperProvider>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 

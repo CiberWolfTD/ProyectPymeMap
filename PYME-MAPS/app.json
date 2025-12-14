@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "PYME-MAPS",
-    "slug": "PYME-MAPS",
+    "name": "Pyme Maps",
+    "slug": "pyme-maps",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,13 +14,16 @@
     },
     "ios": {
       "supportsTablet": true,
+      "userInterfaceStyle": "light",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "La app necesita acceso a tus fotos para subir imágenes de tu negocio y productos",
         "NSCameraUsageDescription": "La app necesita acceso a la cámara para tomar fotos de tu negocio y productos",
-        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para mostrarte locales cercanos en el mapa"
+        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para mostrarte locales cercanos en el mapa",
+        "UIUserInterfaceStyle": "Light"
       }
     },
     "android": {
+      "userInterfaceStyle": "light",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
