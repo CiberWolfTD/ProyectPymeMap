@@ -10,23 +10,14 @@ import RegisterLocalScreen from './src/screens/RegisterLocalScreen';
 import LocalDetailScreen from './src/screens/LocalDetailScreen';
 import AddProductScreen from './src/screens/AddProductScreen';
 import MapScreen from './src/screens/MapScreen';
-
-// Pantallas placeholder
-const HomeScreen = ({ onNavigateToScreen }) => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-    <Text style={{ fontSize: 24, marginBottom: 20 }}>Home (En desarrollo)</Text>
-    <Button mode="contained" onPress={() => onNavigateToScreen('MapScreen')}>Ver Mapa</Button>
-    <Button mode="outlined" onPress={() => onNavigateToScreen('Profile')} style={{ marginTop: 10 }}>
-      Ir a Perfil
-    </Button>
-  </View>
-);
+import HomeScreen from './src/screens/HomeScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = React.useState('Login');
   const [userData, setUserData] = React.useState(null);
   const [fontsLoaded] = useFonts({ CabinSketch_400Regular, CabinSketch_700Bold });
   const [selectedLocalId, setSelectedLocalId] = React.useState(null);
+  const [previousScreen, setPreviousScreen] = React.useState(null);
 
   const handleNavigateToScreen = (screen, data) => {
     console.log('Navegando a:', screen, 'con datos:', data);
@@ -34,6 +25,11 @@ export default function App() {
     if (data?.localId) {
       setSelectedLocalId(data.localId);
     }
+    
+    if (data?.origin) {
+      setPreviousScreen(data.origin);
+    }
+    
     setCurrentScreen(screen);
   };
 
@@ -48,16 +44,14 @@ export default function App() {
     );
   }
 
-  // Login exitoso
   const handleLoginSuccess = (data) => {
     console.log('Login exitoso:', data);
     setUserData(data);
-    setCurrentScreen('Profile');
+    setCurrentScreen('MapScreen');
   };
 
-  // Cierra sesión
   const handleLogout = () => {
-    console.log('Cerrando sesión');
+    console.log('Cerrando sesion');
     setUserData(null);
     setCurrentScreen('Login');
     setSelectedLocalId(null);
@@ -77,7 +71,10 @@ export default function App() {
       )}
 
       {currentScreen === 'Home' && userData && (
-        <HomeScreen onNavigateToScreen={handleNavigateToScreen} />
+        <HomeScreen 
+          userData={userData}
+          onNavigateToScreen={handleNavigateToScreen}
+        />
       )}
 
       {currentScreen === 'MapScreen' && userData && (
@@ -113,6 +110,7 @@ export default function App() {
         <LocalDetailScreen 
           userData={userData}
           localId={selectedLocalId}
+          previousScreen={previousScreen}
           onNavigateToScreen={handleNavigateToScreen}
         />
       )}

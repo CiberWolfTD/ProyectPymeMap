@@ -8,7 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { createLocal } from '../services/localService';
 import { createDireccion } from '../services/direccionService';
 import { uploadImage, generateFileName } from '../services/imageService';
-import { geocodificarDireccion, coordenadasEnChile } from '../services/geocodingService';
+import { geocodificarDireccion } from '../services/geocodingService';
 
 export default function RegisterLocalScreen({ userData, onNavigateToScreen }) {
 
@@ -137,16 +137,6 @@ export default function RegisterLocalScreen({ userData, onNavigateToScreen }) {
       });
 
       console.log('Resultado geocodificación:', resultado);
-
-      if (!coordenadasEnChile(resultado.latitude, resultado.longitude)) {
-        Alert.alert(
-          'Ubicación inválida',
-          'Las coordenadas encontradas no están en Chile. Verifica la dirección.',
-          [{ text: 'OK' }]
-        );
-        setLoadingGeocode(false);
-        return;
-      }
 
       const dentroDeLaZona = estaDentroDeZona(resultado.latitude, resultado.longitude);
 

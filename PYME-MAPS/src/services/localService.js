@@ -90,7 +90,7 @@ export const createLocal = async (localData) => {
   }
 };
 
-// Obtener local con productos y dirección
+// Obtener local con productos Y dirección
 export const getLocalWithProducts = async (localId) => {
   try {
     console.log('Obteniendo local con productos:', localId);
@@ -171,7 +171,7 @@ export const updateLocal = async (localId, updates) => {
   }
 };
 
-// Eliminar local (Manualmebnte porque no me gusto como query BD)
+// Eliminar local (CON CASCADE MANUAL)
 export const deleteLocal = async (localId) => {
   try {
     console.log('Eliminando local y sus dependencias:', localId);
@@ -221,26 +221,68 @@ export const deleteLocal = async (localId) => {
   }
 };
 
-// Obtener productos de un local
-export const getLocalProducts = async (localId) => {
+// FUNCIONES PARA BÚSQUEDA (HOME)
+
+/**
+ * Buscar locales por nombre
+ * @param {string} searchTerm - Término de búsqueda
+ */
+export const buscarLocalPorNombre = async (searchTerm) => {
   try {
-    console.log('Obteniendo productos del local:', localId);
+    console.log('Buscando locales por nombre:', searchTerm);
     
-    if (!localId) {
-      throw new Error('El ID del local es requerido');
+    const { data, error } = await supabase
+      .rpc('buscar_local_nombre', { search_term: searchTerm });
+
+    if (error) {
+      console.warn('RPC buscar_local_nombre no disponible, usando fallback');
+      throw error;
     }
 
+    console.log('Locales encontrados:', data?.length || 0);
+    return data || [];
+  } catch (error) {
+    console.log('Usando búsqueda simple de locales (fallback)');
+    return await buscarLocalSimple(searchTerm);
+  }
+};
+
+/**
+ * Búsqueda simple de locales (fallback si RPC falla)
+ */
+const buscarLocalSimple = async (searchTerm) => {
+  try {
+    console.log('Usando búsqueda simple de locales (fallback)');
+    
     const { data, error } = await supabase
-      .from('producto')
-      .select('*')
-      .eq('id_local', localId);
+      .from('local')
+      .select(`
+        *,
+        direccion (
+          latitud,
+          longitud,
+          calle,
+          numeracion,
+          comuna
+        )
+      `)
+      .ilike('nombre', `%${searchTerm}%`);
 
     if (error) throw error;
 
-    console.log('Productos obtenidos:', data?.length || 0);
-    return data || [];
+    return (data || []).map(local => {
+      const dir = local.direccion?.[0] || local.direccion;
+      return {
+        ...local,
+        latitud: dir?.latitud ?? null,
+        longitud: dir?.longitud ?? null,
+        direccion_completa: dir
+          ? `${dir.calle || ''} ${dir.numeracion || ''}, ${dir.comuna || ''}`
+          : null
+      };
+    });
   } catch (error) {
-    console.error('Error al obtener productos:', error);
+    console.error('Error en búsqueda simple de locales:', error);
     return [];
   }
 };

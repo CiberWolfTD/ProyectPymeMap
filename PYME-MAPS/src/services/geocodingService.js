@@ -10,6 +10,8 @@ export const geocodificarDireccion = async ({ calle, numeracion, comuna, region 
       direccionCompleta
     )}&key=${GOOGLE_API_KEY}`;
 
+    console.log('Geocodificando:', direccionCompleta);
+
     const response = await fetch(url);
     const data = await response.json();
 

@@ -10,7 +10,7 @@ import { getDireccionByLocal, updateDireccion, createDireccion } from '../servic
 import { uploadImage, generateFileName } from '../services/imageService';
 import { geocodificarDireccion } from '../services/geocodingService';
 
-export default function LocalDetailScreen({ userData, localId, onNavigateToScreen }) {
+export default function LocalDetailScreen({ userData, localId, previousScreen, origin, onNavigateToScreen }) {
   const [local, setLocal] = React.useState(null);
   const [productos, setProductos] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -21,6 +21,7 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
     icono: null
   });
 
+  // Estados para dirección
   const [editDireccion, setEditDireccion] = React.useState({
     calle: '',
     numeracion: '',
@@ -36,6 +37,9 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
   const [selectedProduct, setSelectedProduct] = React.useState(null);
   const [editProductData, setEditProductData] = React.useState({});
   const [editProductImage, setEditProductImage] = React.useState(null);
+
+  // Determinar la pantalla de origen
+  const screenToReturn = origin || previousScreen || 'MyPymeScreen';
 
   React.useEffect(() => {
     cargarLocal();
@@ -57,7 +61,6 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
           correo: datos.correo
         });
 
-        // Cargar dirección actual (puede ser null)
         const direccion = await getDireccionByLocal(localId);
         if (direccion) {
           setEditDireccion({
@@ -66,7 +69,7 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
             comuna: direccion.comuna || ''
           });
         } else {
-          console.log('⚠️ Este local no tiene dirección registrada');
+          console.log('Este local no tiene dirección registrada');
           setEditDireccion({
             calle: '',
             numeracion: '',
@@ -84,6 +87,11 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoBack = () => {
+    console.log('Volviendo a:', screenToReturn);
+    onNavigateToScreen(screenToReturn, {});
   };
 
   const pickLocalImage = async (tipo) => {
@@ -125,7 +133,6 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
     }
   };
 
-  // NUEVA FUNCIÓN: Geocodificar dirección actualizada
   const handleVerificarUbicacion = async () => {
     if (!editDireccion.calle || !editDireccion.numeracion || !editDireccion.comuna) {
       Alert.alert('Error', 'Completa todos los campos de dirección');
@@ -167,7 +174,6 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
         correo: editData.correo
       };
 
-      // Subir nuevas imágenes si existen
       if (editImages.portada) {
         const result = await uploadImage(
           editImages.portada,
@@ -186,7 +192,6 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
         if (result.success) updates.imagen_icono = result.url;
       }
 
-      // Actualizar local
       const result = await updateLocal(localId, updates);
       
       if (!result.success) {
@@ -195,12 +200,10 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
         return;
       }
 
-      // Actualizar o crear dirección si hay coordenadas nuevas
       if (newCoords) {
         const direccionActual = await getDireccionByLocal(localId);
         
         if (direccionActual) {
-          // Actualizar dirección existente
           await updateDireccion(direccionActual.id_direccion, {
             calle: editDireccion.calle,
             numeracion: editDireccion.numeracion,
@@ -209,8 +212,6 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
             longitud: newCoords.longitude
           });
         } else {
-          // Crear nueva dirección
-          const { createDireccion } = require('../services/direccionService');
           await createDireccion({
             id_local: localId,
             region: 'Región Metropolitana',
@@ -339,6 +340,8 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
     );
   }
 
+  const esElDueño = userData?.id_user === local.id_user;
+
   const coordenadas = {
     latitude: parseFloat(local.latitud) || -33.45,
     longitude: parseFloat(local.longitud) || -70.6667,
@@ -348,27 +351,29 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
     <View style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => onNavigateToScreen('MyPymeScreen', {})}>
+        <TouchableOpacity onPress={handleGoBack}>
           <MaterialCommunityIcons name="arrow-left" size={28} color="#674FA3" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Detalles del local</Text>
-        {!editMode ? (
-          <TouchableOpacity onPress={() => setEditMode(true)}>
-            <MaterialCommunityIcons name="pencil" size={24} color="#674FA3" />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => {
-            setEditMode(false);
-            setEditImages({ portada: null, icono: null });
-            setNewCoords(null);
-            setEditData({
-              descripcion: local.descripcion,
-              telefono: local.telefono,
-              correo: local.correo
-            });
-          }}>
-            <MaterialCommunityIcons name="close" size={24} color="#d32f2f" />
-          </TouchableOpacity>
+        {esElDueño && (
+          !editMode ? (
+            <TouchableOpacity onPress={() => setEditMode(true)}>
+              <MaterialCommunityIcons name="pencil" size={24} color="#674FA3" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => {
+              setEditMode(false);
+              setEditImages({ portada: null, icono: null });
+              setNewCoords(null);
+              setEditData({
+                descripcion: local.descripcion,
+                telefono: local.telefono,
+                correo: local.correo
+              });
+            }}>
+              <MaterialCommunityIcons name="close" size={24} color="#d32f2f" />
+            </TouchableOpacity>
+          )
         )}
       </View>
 
@@ -441,7 +446,6 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
                 style={styles.editInput}
               />
 
-              {/* EDITAR DIRECCIÓN */}
               <Text style={styles.sectionTitle}>Dirección</Text>
               <TextInput
                 label="Calle"
@@ -537,12 +541,14 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Productos</Text>
 
-            <Button
-              icon="plus"
-              onPress={() => onNavigateToScreen('AddProductScreen', { localId })}
-            >
-              Agregar
-            </Button>
+            {esElDueño && (
+              <Button
+                icon="plus"
+                onPress={() => onNavigateToScreen('AddProductScreen', { localId })}
+              >
+                Agregar
+              </Button>
+            )}
           </View>
 
           {productos.length === 0 ? (
@@ -572,25 +578,27 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
                     {producto.descripcion}
                   </Text>
                   
-                  <View style={styles.productActions}>
-                    <Button 
-                      icon="pencil" 
-                      mode="outlined" 
-                      onPress={() => openEditProduct(producto)}
-                      style={{ flex: 1, marginRight: 5 }}
-                    >
-                      Editar
-                    </Button>
-                    <Button 
-                      icon="delete" 
-                      mode="outlined" 
-                      onPress={() => openDeleteProduct(producto)}
-                      style={{ flex: 1, marginLeft: 5 }}
-                      textColor="#d32f2f"
-                    >
-                      Eliminar
-                    </Button>
-                  </View>
+                  {esElDueño && (
+                    <View style={styles.productActions}>
+                      <Button 
+                        icon="pencil" 
+                        mode="outlined" 
+                        onPress={() => openEditProduct(producto)}
+                        style={{ flex: 1, marginRight: 5 }}
+                      >
+                        Editar
+                      </Button>
+                      <Button 
+                        icon="delete" 
+                        mode="outlined" 
+                        onPress={() => openDeleteProduct(producto)}
+                        style={{ flex: 1, marginLeft: 5 }}
+                        textColor="#d32f2f"
+                      >
+                        Eliminar
+                      </Button>
+                    </View>
+                  )}
                 </Card.Content>
               </Card>
             ))
@@ -602,7 +610,6 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
 
       {/* DIÁLOGOS */}
       <Portal>
-        {/* Confirmar eliminar local */}
         <Dialog visible={deleteDialog} onDismiss={() => setDeleteDialog(false)}>
           <Dialog.Title>Confirmar eliminación</Dialog.Title>
           <Dialog.Content>
@@ -614,7 +621,6 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
           </Dialog.Actions>
         </Dialog>
 
-        {/* Verificar ubicación */}
         <Dialog 
           visible={showLocationDialog} 
           onDismiss={() => setShowLocationDialog(false)}
@@ -645,7 +651,6 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
           </Dialog.Actions>
         </Dialog>
 
-        {/* Editar producto */}
         <Dialog 
           visible={editProductDialog} 
           onDismiss={() => setEditProductDialog(false)}
@@ -703,7 +708,6 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
           </Dialog.Actions>
         </Dialog>
 
-        {/* Confirmar eliminar producto */}
         <Dialog visible={deleteProductDialog} onDismiss={() => setDeleteProductDialog(false)}>
           <Dialog.Title>Confirmar eliminación</Dialog.Title>
           <Dialog.Content>
@@ -718,6 +722,7 @@ export default function LocalDetailScreen({ userData, localId, onNavigateToScree
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
@@ -802,15 +807,18 @@ const styles = StyleSheet.create({
     marginTop: 15,
     marginBottom: 10
   },
-  editInput:
-  { marginBottom: 10, 
-    backgroundColor: '#fff' },
+  editInput: {
+    marginBottom: 10,
+    backgroundColor: '#fff' 
+  },
   verifyButton: {
     marginTop: 5,
-    marginBottom: 10 },
+    marginBottom: 10 
+  },
   editButtons: {
     flexDirection: 'row',
-    marginTop: 15 },
+    marginTop: 15 
+  },
   infoCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -822,14 +830,18 @@ const styles = StyleSheet.create({
   infoText: {
     marginLeft: 10,
     color: "#333",
-    fontSize: 14 },
+    fontSize: 14 
+  },
   mapContainer: {
-    padding: 20 },
+    padding: 20 
+  },
   map: {
     height: 220,
-    borderRadius: 10 },
+    borderRadius: 10 
+  },
   productContainer: {
-    padding: 20 },
+    padding: 20 
+  },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -838,16 +850,21 @@ const styles = StyleSheet.create({
   },
   emptyProducts: {
     alignItems: "center",
-    paddingVertical: 40 },
+    paddingVertical: 40 
+  },
   productCard: {
-    marginBottom: 15 },
+    marginBottom: 15 
+  },
   productImage: {
-    height: 150 },
+    height: 150 
+  },
   productContent: {
-    paddingVertical: 10 },
+    paddingVertical: 10 
+  },
   productName: {
     fontSize: 16,
-    fontWeight: "bold" },
+    fontWeight: "bold" 
+  },
   productPrice: {
     fontSize: 18,
     fontWeight: "bold",
@@ -857,12 +874,15 @@ const styles = StyleSheet.create({
   productDesc: {
     fontSize: 14,
     color: "#666",
-    marginBottom: 10 },
+    marginBottom: 10 
+  },
   productActions: {
     flexDirection: 'row',
-    marginTop: 10 },
+    marginTop: 10 
+  },
   dialogLarge: {
-    maxHeight: '80%' },
+    maxHeight: '80%' 
+  },
   dialogImagePicker: {
     width: '100%',
     height: 150,
@@ -875,14 +895,18 @@ const styles = StyleSheet.create({
   dialogImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 10 },
+    borderRadius: 10 
+  },
   dialogInput: {
     marginBottom: 10,
-    backgroundColor: '#fff' },
+    backgroundColor: '#fff' 
+  },
   mapDialog: {
-    maxHeight: '70%' },
+    maxHeight: '70%' 
+  },
   mapPreview: {
     width: '100%',
     height: 250,
-    borderRadius: 10 }
+    borderRadius: 10 
+  }
 });

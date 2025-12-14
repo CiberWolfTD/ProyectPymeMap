@@ -11,66 +11,92 @@ export default function MapScreen({ userData, onNavigateToScreen }) {
   const [loading, setLoading] = React.useState(true);
   const mapRef = React.useRef(null);
 
-  //Limites de mapa
-const SAN_DIEGO_BOUNDARY = {
-  minLat: -33.4650,  // Sur
-  maxLat: -33.4300,  // Norte
-  minLng: -70.6800,  // Oeste
-  maxLng: -70.6350,  // Este
-};
+  // Límites de mapa
+  const SAN_DIEGO_BOUNDARY = {
+    minLat: -33.4650,
+    maxLat: -33.4300,
+    minLng: -70.6800,
+    maxLng: -70.6350,
+  };
 
-const [region] = React.useState({
-  latitude: -33.455,
-  longitude: -70.646,
-  latitudeDelta: 0.02,
-  longitudeDelta: 0.02,
-});
-
+  const [region] = React.useState({
+    latitude: -33.455,
+    longitude: -70.646,
+    latitudeDelta: 0.02,
+    longitudeDelta: 0.02,
+  });
 
   React.useEffect(() => {
     cargarLocales();
   }, []);
 
+  // Función para validar coordenadas
+  const validarCoordenadas = (lat, lon) => {
+    const latNum = parseFloat(lat);
+    const lonNum = parseFloat(lon);
+    
+    if (isNaN(latNum) || isNaN(lonNum)) {
+      return null;
+    }
+    
+    if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
+      return null;
+    }
+    
+    return { latitude: latNum, longitude: lonNum };
+  };
+
   const cargarLocales = async () => {
     setLoading(true);
     try {
       const datos = await getAllLocales();
-        console.log("Coordenadas obtenidas:", datos.map(l => ({
+      console.log("Coordenadas obtenidas:", datos.map(l => ({
         nombre: l.nombre,
         latitud: l.latitud,
         longitud: l.longitud
+      })));
+
+      // Filtrar locales con coordenadas válidas y dentro de la zona
+      const localesValidos = datos.filter(local => {
+        const coords = validarCoordenadas(local.latitud, local.longitud);
+        
+        if (!coords) {
+          console.warn(`Local "${local.nombre}" sin coordenadas válidas`);
+          return false;
         }
-    )));
-
-
-        const localesDentroZona = datos.filter(local => {
-        const lat = parseFloat(local.latitud);
-        const lon = parseFloat(local.longitud);
-
-        return (
-          !isNaN(lat) && !isNaN(lon) &&
-          lat >= SAN_DIEGO_BOUNDARY.minLat &&
-          lat <= SAN_DIEGO_BOUNDARY.maxLat &&
-          lon >= SAN_DIEGO_BOUNDARY.minLng &&
-          lon <= SAN_DIEGO_BOUNDARY.maxLng
+        
+        const dentroZona = (
+          coords.latitude >= SAN_DIEGO_BOUNDARY.minLat &&
+          coords.latitude <= SAN_DIEGO_BOUNDARY.maxLat &&
+          coords.longitude >= SAN_DIEGO_BOUNDARY.minLng &&
+          coords.longitude <= SAN_DIEGO_BOUNDARY.maxLng
         );
+        
+        if (!dentroZona) {
+          console.warn(`Local "${local.nombre}" fuera de zona`);
+        }
+        
+        return dentroZona;
       });
 
-      setLocales(localesDentroZona);
-      console.log("Locales dentro de zona:", localesDentroZona.length);
+      setLocales(localesValidos);
+      console.log("Locales válidos dentro de zona:", localesValidos.length);
 
-      if (localesDentroZona.length > 0) {
-        const first = localesDentroZona[0];
-        mapRef.current?.animateToRegion({
-          latitude: parseFloat(first.latitud),
-          longitude: parseFloat(first.longitud),
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }, 600);
+      if (localesValidos.length > 0) {
+        const first = localesValidos[0];
+        const coords = validarCoordenadas(first.latitud, first.longitud);
+        
+        if (coords && mapRef.current) {
+          mapRef.current.animateToRegion({
+            ...coords,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }, 600);
+        }
       } else {
         Alert.alert(
           "Sin locales visibles",
-          "No hay locales dentro de la zona permitida (San Diego - Santiago)."
+          "No hay locales con coordenadas válidas en la zona permitida."
         );
       }
 
@@ -83,19 +109,30 @@ const [region] = React.useState({
   };
 
   const handleMarkerPress = (local) => {
+    const coords = validarCoordenadas(local.latitud, local.longitud);
+    
+    if (!coords) {
+      console.error(`Coordenadas inválidas para local: ${local.nombre}`);
+      Alert.alert("Error", "Este local no tiene coordenadas válidas");
+      return;
+    }
+    
     setSelectedLocal(local);
-    mapRef.current?.animateToRegion({
-      latitude: parseFloat(local.latitud),
-      longitude: parseFloat(local.longitud),
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    }, 500);
+    
+    if (mapRef.current) {
+      mapRef.current.animateToRegion({
+        ...coords,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }, 500);
+    }
   };
 
   const handleCardPress = () => {
-    if (selectedLocal) {
+    if (selectedLocal && selectedLocal.id_local) {
       onNavigateToScreen('LocalDetailScreen', {
-        localId: selectedLocal.id_local
+        localId: selectedLocal.id_local,
+        origin: 'MapScreen'
       });
     }
   };
@@ -103,14 +140,17 @@ const [region] = React.useState({
   const handleCenterMap = () => {
     if (locales.length > 0) {
       const first = locales[0];
-      mapRef.current?.animateToRegion({
-        latitude: parseFloat(first.latitud),
-        longitude: parseFloat(first.longitud),
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }, 500);
-    } else {
-      mapRef.current?.animateToRegion(region, 500);
+      const coords = validarCoordenadas(first.latitud, first.longitud);
+      
+      if (coords && mapRef.current) {
+        mapRef.current.animateToRegion({
+          ...coords,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }, 500);
+      }
+    } else if (mapRef.current) {
+      mapRef.current.animateToRegion(region, 500);
     }
   };
 
@@ -141,27 +181,29 @@ const [region] = React.useState({
         showsCompass={true}
         loadingEnabled={true}
       >
-        {locales.map((local) => (
-          <Marker
-            key={local.id_local}
-            coordinate={{
-              latitude: parseFloat(local.latitud),
-              longitude: parseFloat(local.longitud),
-            }}
-            onPress={() => handleMarkerPress(local)}
-          >
-            <View style={styles.markerContainer}>
-              <View style={[
-                styles.marker,
-                selectedLocal?.id_local === local.id_local && styles.markerSelected
-              ]}>
-                <MaterialCommunityIcons name="store" size={20} color="#fff" />
+        {locales.map((local) => {
+          const coords = validarCoordenadas(local.latitud, local.longitud);
+          
+          if (!coords) return null;
+          
+          return (
+            <Marker
+              key={local.id_local}
+              coordinate={coords}
+              onPress={() => handleMarkerPress(local)}
+            >
+              <View style={styles.markerContainer}>
+                <View style={[
+                  styles.marker,
+                  selectedLocal?.id_local === local.id_local && styles.markerSelected
+                ]}>
+                  <MaterialCommunityIcons name="store" size={20} color="#fff" />
+                </View>
               </View>
-            </View>
-          </Marker>
-        ))}
+            </Marker>
+          );
+        })}
       </MapView>
-
 
       <View style={styles.counter}>
         <View style={styles.counterBadge}>
@@ -172,11 +214,9 @@ const [region] = React.useState({
         </View>
       </View>
 
-
       <TouchableOpacity style={styles.centerButton} onPress={handleCenterMap}>
         <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#674FA3" />
       </TouchableOpacity>
-
 
       {selectedLocal && (
         <View style={styles.selectedCard}>
@@ -190,7 +230,6 @@ const [region] = React.useState({
               </TouchableOpacity>
             </View>
             <View style={styles.cardBody}>
-
               <View style={styles.cardImageContainer}>
                 {selectedLocal.imagen_portada ? (
                   <Image source={{ uri: selectedLocal.imagen_portada }} style={styles.cardImage} />
@@ -200,7 +239,6 @@ const [region] = React.useState({
                   </View>
                 )}
               </View>
-
 
               <View style={styles.cardInfo}>
                 <Text style={styles.cardTitle} numberOfLines={1}>
@@ -231,14 +269,12 @@ const [region] = React.useState({
         </View>
       )}
 
-
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#674FA3" />
           <Text style={styles.loadingText}>Cargando locales...</Text>
         </View>
       )}
-
 
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem} onPress={() => onNavigateToScreen('Home')}>
@@ -271,14 +307,11 @@ const [region] = React.useState({
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
   },
-
-
   header: {
     paddingTop: 50,
     paddingBottom: 15,
@@ -301,13 +334,9 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     color: '#222',
   },
-
-
   map: {
     flex: 1,
   },
-
-
   markerContainer: {
     alignItems: 'center',
   },
@@ -330,8 +359,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF6B6B',
     transform: [{ scale: 1.2 }],
   },
-
-
   counter: {
     position: 'absolute',
     top: 120,
@@ -356,8 +383,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#222',
   },
-
-
   centerButton: {
     position: 'absolute',
     top: 120,
@@ -374,8 +399,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-
-
   selectedCard: {
     position: 'absolute',
     bottom: 90,
@@ -455,8 +478,6 @@ const styles = StyleSheet.create({
     color: '#674FA3',
     fontWeight: '600',
   },
-
-
   loadingOverlay: {
     position: 'absolute',
     top: 0,
@@ -473,8 +494,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-
-
   bottomNav: {
     position: 'absolute',
     bottom: 0,
