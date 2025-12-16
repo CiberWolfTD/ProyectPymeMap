@@ -2,7 +2,7 @@ import * as React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, FlatList, Alert } from 'react-native';
 import { Text, Card, ActivityIndicator, Menu, Button, Chip, Portal, Dialog } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getAllProductos, buscarProductoPorNombre, buscarProductoPorMarca, ordenarPorPrecioMenor, ordenarPorPrecioMayor, filtrarPorRangoPrecio } from '../services/productoService';
+import { getAllProductos,  buscarProductoPorNombre, buscarProductoPorMarca, ordenarPorPrecioMenor, ordenarPorPrecioMayor, filtrarPorRangoPrecio } from '../services/productoService';
 import { getAllLocales, buscarLocalPorNombre } from '../services/localService';
 
 export default function HomeScreen({ userData, onNavigateToScreen }) {
@@ -15,13 +15,16 @@ export default function HomeScreen({ userData, onNavigateToScreen }) {
   const [searchMode, setSearchMode] = React.useState('productos');
   const [menuVisible, setMenuVisible] = React.useState(false);
   
+  // Estados para filtro de rango de precio
   const [showPriceDialog, setShowPriceDialog] = React.useState(false);
   const [minPrice, setMinPrice] = React.useState('');
   const [maxPrice, setMaxPrice] = React.useState('');
   
+  // Estado para filtro de marca
   const [showBrandDialog, setShowBrandDialog] = React.useState(false);
   const [brandQuery, setBrandQuery] = React.useState('');
 
+  // Cargar datos iniciales solo una vez
   React.useEffect(() => {
     cargarDatosIniciales();
   }, []);
@@ -30,7 +33,7 @@ export default function HomeScreen({ userData, onNavigateToScreen }) {
     setLoading(true);
     
     try {
-      // Cargar productos y locales
+      // Cargar productos y locales en paralelo
       const [datosProductos, datosLocales] = await Promise.all([
         getAllProductos(),
         getAllLocales()
@@ -311,62 +314,67 @@ export default function HomeScreen({ userData, onNavigateToScreen }) {
       </View>
 
       {searchMode === 'productos' && (
-        <ScrollView 
-          horizontal 
-          style={styles.filterBar}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterBarContent}
-        >
-          <Menu
-            visible={menuVisible}
-            onDismiss={() => setMenuVisible(false)}
-            anchor={
-              <Button
-                mode="outlined"
-                onPress={() => setMenuVisible(true)}
-                icon="sort"
-                style={styles.filterButton}
-                compact
-              >
-                Ordenar
-              </Button>
-            }
+        <View style={styles.filterBarContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterBarContent}
           >
-            <Menu.Item onPress={() => handleOrdenar('menor')} title="Menor a Mayor" />
-            <Menu.Item onPress={() => handleOrdenar('mayor')} title="Mayor a Menor" />
-            <Menu.Item onPress={() => handleOrdenar('default')} title="Sin ordenar" />
-          </Menu>
+            <Menu
+              visible={menuVisible}
+              onDismiss={() => setMenuVisible(false)}
+              anchor={
+                <Button
+                  mode="outlined"
+                  onPress={() => setMenuVisible(true)}
+                  icon="sort"
+                  style={styles.filterButton}
+                  compact
+                  labelStyle={styles.filterButtonLabel}
+                >
+                  Ordenar
+                </Button>
+              }
+            >
+              <Menu.Item onPress={() => handleOrdenar('menor')} title="Menor a Mayor" />
+              <Menu.Item onPress={() => handleOrdenar('mayor')} title="Mayor a Menor" />
+              <Menu.Item onPress={() => handleOrdenar('default')} title="Sin ordenar" />
+            </Menu>
 
-          <Button
-            mode="outlined"
-            onPress={() => setShowPriceDialog(true)}
-            icon="currency-usd"
-            style={styles.filterButton}
-            compact
-          >
-            Rango precio
-          </Button>
+            <Button
+              mode="outlined"
+              onPress={() => setShowPriceDialog(true)}
+              icon="currency-usd"
+              style={styles.filterButton}
+              compact
+              labelStyle={styles.filterButtonLabel}
+            >
+              Rango precio
+            </Button>
 
-          <Button
-            mode="outlined"
-            onPress={() => setShowBrandDialog(true)}
-            icon="tag"
-            style={styles.filterButton}
-            compact
-          >
-            Por marca
-          </Button>
+            <Button
+              mode="outlined"
+              onPress={() => setShowBrandDialog(true)}
+              icon="tag"
+              style={styles.filterButton}
+              compact
+              labelStyle={styles.filterButtonLabel}
+            >
+              Por marca
+            </Button>
 
-          <Button
-            mode="outlined"
-            onPress={cargarDatosIniciales}
-            icon="refresh"
-            style={styles.filterButton}
-            compact
-          >
-            Recargar
-          </Button>
-        </ScrollView>
+            <Button
+              mode="outlined"
+              onPress={cargarDatosIniciales}
+              icon="refresh"
+              style={styles.filterButton}
+              compact
+              labelStyle={styles.filterButtonLabel}
+            >
+              Recargar
+            </Button>
+          </ScrollView>
+        </View>
       )}
 
       {loading ? (
@@ -403,7 +411,7 @@ export default function HomeScreen({ userData, onNavigateToScreen }) {
         />
       )}
 
-
+      {/* Diálogos de filtros */}
       <Portal>
         {/* Filtro de rango de precio */}
         <Dialog visible={showPriceDialog} onDismiss={() => setShowPriceDialog(false)}>
@@ -486,7 +494,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   header: {
     backgroundColor: '#fff',
-    paddingTop: 50,
+    paddingTop: 20,
     paddingHorizontal: 15,
     paddingBottom: 10,
     borderBottomWidth: 1,
@@ -532,8 +540,7 @@ const styles = StyleSheet.create({
     color: '#999',
     fontWeight: '300',
   },
-  filterBar: {
-    maxHeight: 60,
+  filterBarContainer: {
     backgroundColor: '#fff',
     paddingVertical: 10,
     borderBottomWidth: 1,
@@ -546,6 +553,10 @@ const styles = StyleSheet.create({
   },
   filterButton: { 
     marginRight: 8,
+    minWidth: 120,
+  },
+  filterButtonLabel: {
+    fontSize: 13,
   },
   listContent: {
     paddingHorizontal: 10,
@@ -669,7 +680,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#D3D3D3',
     paddingVertical: 10,
-    paddingBottom: 20,
+    paddingBottom: 25,
     borderTopWidth: 1,
     borderTopColor: '#ccc',
   },

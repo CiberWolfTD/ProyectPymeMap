@@ -1,8 +1,7 @@
 import * as React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
-import { Provider as PaperProvider, Button } from 'react-native-paper';
+import { View, StyleSheet, Text, StatusBar, Platform } from 'react-native';
+import { Provider as PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { useFonts, CabinSketch_400Regular, CabinSketch_700Bold } from '@expo-google-fonts/cabin-sketch';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -13,6 +12,23 @@ import AddProductScreen from './src/screens/AddProductScreen';
 import MapScreen from './src/screens/MapScreen';
 import HomeScreen from './src/screens/HomeScreen';
 
+// Tema a modo claro
+const lightTheme = {
+  ...MD3LightTheme,
+  dark: false,
+  colors: {
+    ...MD3LightTheme.colors,
+    primary: '#674FA3',
+    primaryContainer: '#f3eefaff',
+    secondary: '#674FA3',
+    background: '#ffffff',
+    surface: '#ffffff',
+    surfaceVariant: '#f5f5f5',
+    onSurface: '#222222',
+    onSurfaceVariant: '#666666',
+  },
+};
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = React.useState('Login');
   const [userData, setUserData] = React.useState(null);
@@ -21,7 +37,7 @@ export default function App() {
   const [previousScreen, setPreviousScreen] = React.useState(null);
 
   const handleNavigateToScreen = (screen, data) => {
-    console.log('Navegando a:', screen, 'con datos:', data);
+    console.log('Navegando a:', screen);
     
     if (data?.localId) {
       setSelectedLocalId(data.localId);
@@ -37,6 +53,7 @@ export default function App() {
   if (!fontsLoaded) {
     return (
       <View style={styles.loadingContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#f3eefaff" />
         <Text style={styles.loadingTitle}>Cargando Pyme Maps...</Text>
         <View style={styles.progressBar}>
           <View style={styles.progressFill} />
@@ -46,92 +63,98 @@ export default function App() {
   }
 
   const handleLoginSuccess = (data) => {
-    console.log('Login exitoso:', data);
     setUserData(data);
     setCurrentScreen('MapScreen');
   };
 
   const handleLogout = () => {
-    console.log('Cerrando sesion');
     setUserData(null);
     setCurrentScreen('Login');
     setSelectedLocalId(null);
   };
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-        <PaperProvider>
-          {currentScreen === 'Login' && (
-            <LoginScreen 
-              onNavigate={setCurrentScreen} 
-              onLoginSuccess={handleLoginSuccess}
-            />
-          )}
+    <PaperProvider theme={lightTheme}>
+      <View style={styles.container}>
+        <StatusBar 
+          barStyle="dark-content" 
+          backgroundColor="#ffffff"
+          translucent={false}
+        />
+        
+        {currentScreen === 'Login' && (
+          <LoginScreen 
+            onNavigate={setCurrentScreen} 
+            onLoginSuccess={handleLoginSuccess}
+          />
+        )}
 
-          {currentScreen === 'Register' && (
-            <RegisterScreen onNavigate={setCurrentScreen} />
-          )}
+        {currentScreen === 'Register' && (
+          <RegisterScreen onNavigate={setCurrentScreen} />
+        )}
 
-          {currentScreen === 'Home' && userData && (
-            <HomeScreen 
-              userData={userData}
-              onNavigateToScreen={handleNavigateToScreen}
-            />
-          )}
+        {currentScreen === 'Home' && userData && (
+          <HomeScreen 
+            userData={userData}
+            onNavigateToScreen={handleNavigateToScreen}
+          />
+        )}
 
-          {currentScreen === 'MapScreen' && userData && (
-            <MapScreen 
-              userData={userData}
-              onNavigateToScreen={handleNavigateToScreen}
-            />
-          )}
+        {currentScreen === 'MapScreen' && userData && (
+          <MapScreen 
+            userData={userData}
+            onNavigateToScreen={handleNavigateToScreen}
+          />
+        )}
 
-          {currentScreen === 'Profile' && userData && (
-            <ProfileScreen 
-              onNavigate={handleLogout} 
-              userData={userData}
-              onNavigateToScreen={handleNavigateToScreen}
-            />
-          )}
+        {currentScreen === 'Profile' && userData && (
+          <ProfileScreen 
+            onNavigate={handleLogout} 
+            userData={userData}
+            onNavigateToScreen={handleNavigateToScreen}
+          />
+        )}
 
-          {currentScreen === 'MyPymeScreen' && userData && (
-            <MyPymeScreen 
-              userData={userData}
-              onNavigateToScreen={handleNavigateToScreen}
-            />
-          )}
+        {currentScreen === 'MyPymeScreen' && userData && (
+          <MyPymeScreen 
+            userData={userData}
+            onNavigateToScreen={handleNavigateToScreen}
+          />
+        )}
 
-          {currentScreen === 'RegisterLocalScreen' && userData && (
-            <RegisterLocalScreen 
-              userData={userData}
-              onNavigateToScreen={handleNavigateToScreen}
-            />
-          )}
+        {currentScreen === 'RegisterLocalScreen' && userData && (
+          <RegisterLocalScreen 
+            userData={userData}
+            onNavigateToScreen={handleNavigateToScreen}
+          />
+        )}
 
-          {currentScreen === 'LocalDetailScreen' && userData && (
-            <LocalDetailScreen 
-              userData={userData}
-              localId={selectedLocalId}
-              previousScreen={previousScreen}
-              onNavigateToScreen={handleNavigateToScreen}
-            />
-          )}
+        {currentScreen === 'LocalDetailScreen' && userData && (
+          <LocalDetailScreen 
+            userData={userData}
+            localId={selectedLocalId}
+            previousScreen={previousScreen}
+            onNavigateToScreen={handleNavigateToScreen}
+          />
+        )}
 
-          {currentScreen === 'AddProductScreen' && userData && (
-            <AddProductScreen 
-              userData={userData}
-              localId={selectedLocalId}
-              onNavigateToScreen={handleNavigateToScreen}
-            />
-          )}
-        </PaperProvider>
-      </SafeAreaView>
-    </SafeAreaProvider>
+        {currentScreen === 'AddProductScreen' && userData && (
+          <AddProductScreen 
+            userData={userData}
+            localId={selectedLocalId}
+            onNavigateToScreen={handleNavigateToScreen}
+          />
+        )}
+      </View>
+    </PaperProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -142,6 +165,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 20,
+    color: '#222',
   },
   progressBar: {
     width: 120,
@@ -153,6 +177,6 @@ const styles = StyleSheet.create({
   progressFill: {
     width: '60%',
     height: '100%',
-    backgroundColor: '#6200ee',
+    backgroundColor: '#674FA3',
   },
 });
